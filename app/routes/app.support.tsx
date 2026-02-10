@@ -6,53 +6,104 @@ import {
   Banner,
   Select,
   Checkbox,
-  Card, // <--- NEU: Für den weißen Kasten
-  BlockStack, // <--- NEU: Für Abstände im Kasten
+  Card,
+  BlockStack,
 } from "@shopify/polaris";
 import { useCallback, useState } from "react";
 
-export default function SupportPage() {
-  const [selected, setSelected] = useState("Normal");
-  const [value, setValue] = useState("Liebe/r Kunde/in");
-  const [checked, setChecked] = useState(false);
+//  WICHTIG: Das sind die Imports für DEINE App (React Router v7)
+import { useLoaderData, useSubmit, useActionData } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
-  const handleSelectChange = useCallback(
-    (value: string) => setSelected(value),
-    [],
-  );
-  const handleTextFieldChange = useCallback(
-    (value: string) => setValue(value),
-    [],
-  );
+import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
+
+// --- LOADER ---
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const settings = await prisma.settings.findFirst({
+    where: { shop: session.shop },
+  });
+
+  // In v7 brauchen wir kein "json()", wir geben das Objekt einfach zurück
+  return settings || { priority: "Normal", message: "", autoReply: false };
+};
+
+// --- ACTION ---
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+  const formData = await request.formData();
+
+  await prisma.settings.upsert({
+    where: { shop: shop },
+    update: {
+      priority: formData.get("priority") as string,
+      message: formData.get("message") as string,
+      autoReply: formData.get("autoReply") === "true",
+    },
+    create: {
+      shop: shop,
+      priority: formData.get("priority") as string,
+      message: formData.get("message") as string,
+      autoReply: formData.get("autoReply") === "true",
+    },
+  });
+
+  return { status: "success" };
+};
+
+// --- FRONTEND ---
+export default function SupportPage() {
+  // Das "as any" hilft hier kurzfristig gegen Typ-Probleme
+  const geladeneDaten = useLoaderData();
+  const actionData = useActionData();
+  const submit = useSubmit();
+
+  const [selected, setSelected] = useState(geladeneDaten?.priority || "Normal");
+  const [value, setValue] = useState(geladeneDaten?.message || "");
+  const [checked, setChecked] = useState(geladeneDaten?.autoReply || false);
+
+  const handleSelectChange = useCallback((val: string) => setSelected(val), []);
+  const handleTextFieldChange = useCallback((val: string) => setValue(val), []);
   const handleCheckboxChange = useCallback(
-    (value: boolean) => setChecked(value),
+    (val: boolean) => setChecked(val),
     [],
   );
+
+  const handleSave = () => {
+    const data = new FormData();
+    data.append("priority", selected);
+    data.append("message", value);
+    data.append("autoReply", String(checked));
+
+    submit(data, { method: "post" });
+  };
 
   const options = [
-    { label: "Normal", value: "normal" },
-    { label: "Hoch", value: "hoch" },
-    { label: "Dringend", value: "dringend" },
+    { label: "Normal", value: "Normal" },
+    { label: "Hoch", value: "Hoch" },
+    { label: "Dringend", value: "Dringend" },
   ];
+
+  const showSuccess = actionData?.status === "success";
 
   return (
     <Page title="Support">
       <Layout>
         <Layout.Section>
-          {/* Banner für Info ganz oben */}
-          <Banner title="Support System" tone="info">
-            Das Support-System ist aktuell aktiv
-          </Banner>
+          {showSuccess && (
+            <Banner tone="success" title="Gespeichert">
+              Deine Einstellungen wurden aktualisiert
+            </Banner>
+          )}
         </Layout.Section>
 
-        {/* Alles Folgende gehört zusammen in EINE Sektion */}
         <Layout.AnnotatedSection
           title="Kontakt-Optionen"
           description="Lege fest, wie Kunden dich kontaktieren können."
         >
-          {/* Hier beginnt der weiße Kasten */}
           <Card>
-            {/* BlockStack sorgt für schöne Abstände zwischen den Feldern */}
             <BlockStack gap="400">
               <Select
                 label="Priorität"
@@ -75,8 +126,7 @@ export default function SupportPage() {
                 onChange={handleCheckboxChange}
               />
 
-              {/* Button rechtsbündig oder volle Breite? Hier mal volle Breite */}
-              <Button variant="primary" onClick={() => alert("Gespeichert!")}>
+              <Button variant="primary" onClick={handleSave}>
                 Speichern
               </Button>
             </BlockStack>
