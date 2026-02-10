@@ -1,0 +1,27 @@
+<div style="background-color: #f4f4f4; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #ddd; margin: 10px 0;">
+  <h2 style="margin: 0; color: #333;">Support Info</h2>
+  <p style="font-size: 1.2em; color: #5c5f62;">
+    {{ block.settings.message }}
+  </p>
+  {% if block.settings.show_priority %}
+    <span style="display: inline-block; padding: 4px 8px; background: #ebebeb; border-radius: 4px; font-size: 0.8em;">
+      Priorität: {{ block.settings.priority_level }}
+    </span>
+  {% endif %}
+</div>
+
+{% schema %}
+{
+  "name": "Support Banner",
+  "target": "section",
+  "settings": [
+    { "type": "text", "id": "message", "label": "Nachricht", "default": "Wir helfen Ihnen gerne!" },
+    { "type": "checkbox", "id": "show_priority", "label": "Priorität anzeigen", "default": true },
+    { "type": "select", "id": "priority_level", "label": "Level", "options": [
+        { "value": "Normal", "label": "Normal" },
+        { "value": "Hoch", "label": "Hoch" },
+        { "value": "Dringend", "label": "Dringend" }
+      ], "default": "Normal" }
+  ]
+}
+{% endschema %}
