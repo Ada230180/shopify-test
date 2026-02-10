@@ -32,3 +32,12 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+// Das ist dein neues Regal für die Einstellungen
+model Settings {
+  id          Int     @id @default(autoincrement())
+  shop        String  @unique
+  priority    String
+  message     String
+  autoReply   Boolean @default(false)
+}
